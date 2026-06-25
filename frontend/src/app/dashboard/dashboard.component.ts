@@ -94,3 +94,100 @@ import { ApiService } from '../services/api.service';
                   <div class="bar-fill" [style.width.%]="getPercentage(item.value, totalIncidents)" 
                        style="background-color: #64748B;"></div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  `,
+  styles: [`
+    .chart-layout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .chart-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .chart-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .bar-container {
+      background-color: #E2E8F0;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+  `]
+})
+export class DashboardComponent implements OnInit {
+  kpis: any = null;
+  loading = true;
+  totalIncidents = 0;
+
+  constructor(private apiService: ApiService) {}
+
+  ngOnInit(): void {
+    this.loadKpis();
+  }
+
+  loadKpis(): void {
+    this.loading = true;
+    this.apiService.getDashboardKpis().subscribe({
+      next: (res) => {
+        this.kpis = res;
+        this.totalIncidents = Object.values(res.priorityDistribution).reduce((a: any, b: any) => a + b, 0) as number;
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+      }
+    });
+  }
+
+  getPercentage(value: any, total: number): number {
+    if (total === 0) return 0;
+    return ((value as number) / total) * 100;
+  }
+
+  getPriorityColor(priority: any): string {
+    switch (priority) {
+      case 'P1': return 'var(--danger)';
+      case 'P2': return 'var(--warning)';
+      case 'P3': return 'var(--primary)';
+      default: return '#64748B';
+    }
+  }
+
+  exportPdf(): void {
+    this.apiService.getReportPdf().subscribe((blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'imp_report.pdf';
+      a.click();
+    });
+  }
+
+  exportExcel(): void {
+    this.apiService.getReportExcel().subscribe((blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'imp_report.csv';
+      a.click();
+    });
+  }
+}
