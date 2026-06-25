@@ -14,3 +14,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CommentController {
 
+    private final CommentService commentService;
+
+    @PostMapping("/incident/{incidentId}")
+    public ResponseEntity<CommentDto> addComment(
+            @PathVariable Long incidentId,
+            @RequestBody CommentDto commentDto,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        return ResponseEntity.ok(commentService.addComment(incidentId, commentDto, token));
+    }
+
+    @GetMapping("/incident/{incidentId}")
+    public ResponseEntity<List<CommentDto>> getComments(
+            @PathVariable Long incidentId,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        return ResponseEntity.ok(commentService.getCommentsForIncident(incidentId, token));
+    }
+}
