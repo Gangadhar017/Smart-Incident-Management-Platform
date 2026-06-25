@@ -73,3 +73,78 @@ export class ApiService {
   }
 
   // Incidents Module
+  getIncidents(filters: {
+    search?: string;
+    priority?: string;
+    status?: string;
+    assigneeId?: number;
+    departmentId?: number;
+    page: number;
+    size: number;
+    sortBy: string;
+    direction: string;
+  }): Observable<any> {
+    let params = new HttpParams()
+      .set('page', filters.page)
+      .set('size', filters.size)
+      .set('sortBy', filters.sortBy)
+      .set('direction', filters.direction);
+
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.priority) params = params.set('priority', filters.priority);
+    if (filters.status) params = params.set('status', filters.status);
+    if (filters.assigneeId) params = params.set('assigneeId', filters.assigneeId);
+    if (filters.departmentId) params = params.set('departmentId', filters.departmentId);
+
+    return this.http.get(`${this.gatewayUrl}/incidents`, { params });
+  }
+
+  getIncidentById(id: number): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/incidents/${id}`);
+  }
+
+  createIncident(incident: any): Observable<any> {
+    return this.http.post(`${this.gatewayUrl}/incidents`, incident);
+  }
+
+  updateIncident(id: number, updates: any): Observable<any> {
+    return this.http.put(`${this.gatewayUrl}/incidents/${id}`, updates);
+  }
+
+  // Comments
+  getComments(incidentId: number): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/comments/incident/${incidentId}`);
+  }
+
+  addComment(incidentId: number, comment: { content: string, isInternal: boolean }): Observable<any> {
+    return this.http.post(`${this.gatewayUrl}/comments/incident/${incidentId}`, comment);
+  }
+
+  // Attachments
+  getAttachments(incidentId: number): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/attachments/incident/${incidentId}`);
+  }
+
+  uploadAttachment(incidentId: number, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${this.gatewayUrl}/attachments/incident/${incidentId}`, formData);
+  }
+
+  downloadAttachmentUrl(id: number): string {
+    return `${this.gatewayUrl}/attachments/${id}/download`;
+  }
+
+  // Dashboard Analytics
+  getDashboardKpis(): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/analytics/dashboard`);
+  }
+
+  getReportPdf(): Observable<Blob> {
+    return this.http.get(`${this.gatewayUrl}/reports/pdf`, { responseType: 'blob' });
+  }
+
+  getReportExcel(): Observable<Blob> {
+    return this.http.get(`${this.gatewayUrl}/reports/excel`, { responseType: 'blob' });
+  }
+}
