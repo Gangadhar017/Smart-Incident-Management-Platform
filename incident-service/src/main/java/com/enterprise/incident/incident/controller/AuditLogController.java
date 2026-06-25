@@ -24,3 +24,30 @@ public class AuditLogController {
     @GetMapping("/{incidentId}/audit")
     public ResponseEntity<List<AuditLogDto>> getIncidentAudit(
             @PathVariable Long incidentId,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        List<AuditLog> logs = auditLogRepository.findByIncidentIdOrderByTimestampDesc(incidentId);
+        List<AuditLogDto> dtos = logs.stream().map(log -> {
+            String userName = "System";
+            if (log.getChangedBy() != 0) {
+                try {
+                    UserDto user = authServiceClient.getUserById(log.getChangedBy(), token);
+                    if (user != null) userName = user.getUsername();
+                } catch (Exception e) {
+                    // Ignore Feign fetch failures
+                }
+            }
+            return AuditLogDto.builder()
+                    .id(log.getId())
+                    .incidentId(log.getIncidentId())
+                    .action(log.getAction())
+                    .changedBy(log.getChangedBy())
+                    .changedByName(userName)
+                    .oldValue(log.getOldValue())
+                    .newValue(log.getNewValue())
+                    .timestamp(log.getTimestamp())
+                    .build();
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+}
