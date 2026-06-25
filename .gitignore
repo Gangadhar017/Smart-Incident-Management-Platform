@@ -1,0 +1,27 @@
+# Maven build artifacts
+**/target/
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Node/Angular artifacts
+**/node_modules/
+**/.angular/
+**/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDEs & OS files
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Platform folders
+**/uploads/
+*.log

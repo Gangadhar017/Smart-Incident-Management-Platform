@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ApiService } from './services/api.service';
@@ -64,12 +64,15 @@ import { ApiService } from './services/api.service';
     </ng-template>
   `
 })
-export class AppComponent {
-  constructor(public apiService: ApiService, private router: Router) {
-    // If not authenticated, force routing to login
-    if (!this.apiService.isAuthenticated()) {
-      this.router.navigate(['/login']);
-    }
+export class AppComponent implements OnInit {
+  constructor(public apiService: ApiService, private router: Router) {}
+
+  ngOnInit(): void {
+    setTimeout(() => {
+      if (!this.apiService.isAuthenticated()) {
+        this.router.navigate(['/login']);
+      }
+    }, 0);
   }
 
   logout(): void {

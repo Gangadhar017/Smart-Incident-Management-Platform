@@ -296,7 +296,7 @@ export class IncidentDetailComponent implements OnInit, OnDestroy {
   }
 
   loadAudits(id: number): void {
-    this.apiService.http.get<any[]>(`http://localhost:8080/api/v1/incidents/${id}/audit`).subscribe(res => this.auditLogs = res);
+    this.apiService.getAuditLogs(id).subscribe(res => this.auditLogs = res);
   }
 
   postComment(): void {

@@ -147,4 +147,8 @@ export class ApiService {
   getReportExcel(): Observable<Blob> {
     return this.http.get(`${this.gatewayUrl}/reports/excel`, { responseType: 'blob' });
   }
+
+  getAuditLogs(incidentId: number): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/incidents/${incidentId}/audit`);
+  }
 }
