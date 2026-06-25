@@ -12,3 +12,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/departments")
 @RequiredArgsConstructor
+public class DepartmentController {
+
+    private final AuthService authService;
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<DepartmentDto> createDepartment(@RequestBody DepartmentDto dto) {
+        return ResponseEntity.ok(authService.createDepartment(dto));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<DepartmentDto>> getAllDepartments() {
+        return ResponseEntity.ok(authService.getAllDepartments());
+    }
+}
