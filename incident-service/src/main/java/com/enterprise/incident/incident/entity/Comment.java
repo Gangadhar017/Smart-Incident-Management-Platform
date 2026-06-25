@@ -18,3 +18,24 @@ import java.time.LocalDateTime;
 public class Comment {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "incident_id", nullable = false)
+    private Incident incident;
+
+    @Column(name = "author_id", nullable = false)
+    private Long authorId;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;
+
+    @Column(name = "is_internal", nullable = false)
+    @Builder.Default
+    private boolean internal = false;
+
+    @CreatedDate
+    @Column(name = "created_date", nullable = false, updatable = false)
+    private LocalDateTime createdDate;
+}
