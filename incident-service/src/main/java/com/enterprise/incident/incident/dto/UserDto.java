@@ -10,3 +10,16 @@ import java.util.Set;
 @Data
 @Builder
 @NoArgsConstructor
+@AllArgsConstructor
+public class UserDto {
+    private Long id;
+    private String username;
+    private String email;
+    private String role;
+    private boolean active;
+    private Long departmentId;
+    private String departmentName;
+    private Long teamId;
+    private String teamName;
+    private Set<String> skills;
+}
