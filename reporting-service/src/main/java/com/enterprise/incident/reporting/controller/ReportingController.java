@@ -19,3 +19,24 @@ public class ReportingController {
 
     @GetMapping("/analytics/dashboard")
     public ResponseEntity<DashboardKpiDto> getDashboardData() {
+        return ResponseEntity.ok(reportingService.getDashboardKpis());
+    }
+
+    @GetMapping("/reports/pdf")
+    public ResponseEntity<byte[]> downloadPdfReport() {
+        byte[] pdfData = reportingService.generatePdfReport();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"incident_report.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfData);
+    }
+
+    @GetMapping("/reports/excel")
+    public ResponseEntity<byte[]> downloadExcelReport() {
+        byte[] excelData = reportingService.generateExcelReport();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"incident_report.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(excelData);
+    }
+}
