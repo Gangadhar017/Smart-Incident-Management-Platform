@@ -3,3 +3,15 @@ server:
 
 spring:
   application:
+    name: reporting-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/incident_db
+    username: postgres
+    password: adminpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
