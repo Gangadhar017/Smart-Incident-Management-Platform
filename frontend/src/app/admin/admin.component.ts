@@ -99,3 +99,104 @@ import { ApiService } from '../services/api.service';
                 </td>
                 <td>{{ staff.departmentName || 'N/A' }}</td>
               </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .admin-card {
+      background-color: #FFFFFF;
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .admin-card h3 {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+  `]
+})
+export class AdminComponent implements OnInit {
+  departments: any[] = [];
+  teams: any[] = [];
+  staffList: any[] = [];
+  searchQuery = '';
+
+  newUser = {
+    username: '',
+    email: '',
+    password: '',
+    role: 'EMPLOYEE',
+    departmentId: null,
+    teamId: null,
+    skills: [] as string[]
+  };
+
+  skillsString = '';
+
+  constructor(private apiService: ApiService) {}
+
+  ngOnInit(): void {
+    this.loadDepartments();
+    this.loadDirectory();
+  }
+
+  loadDepartments(): void {
+    this.apiService.getDepartments().subscribe(res => this.departments = res);
+  }
+
+  loadTeams(): void {
+    if (this.newUser.departmentId) {
+      this.apiService.getTeamsByDepartment(Number(this.newUser.departmentId)).subscribe(res => this.teams = res);
+    } else {
+      this.teams = [];
+      this.newUser.teamId = null;
+    }
+  }
+
+  loadDirectory(): void {
+    this.apiService.getUsers(this.searchQuery).subscribe(res => this.staffList = res.content);
+  }
+
+  saveUser(): void {
+    // Process comma separated skills
+    if (this.skillsString) {
+      this.newUser.skills = this.skillsString.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    } else {
+      this.newUser.skills = [];
+    }
+
+    this.apiService.createUser(this.newUser).subscribe({
+      next: () => {
+        // Reset form
+        this.newUser = {
+          username: '',
+          email: '',
+          password: '',
+          role: 'EMPLOYEE',
+          departmentId: null,
+          teamId: null,
+          skills: []
+        };
+        this.skillsString = '';
+        this.loadDirectory();
+      }
+    });
+  }
+}
