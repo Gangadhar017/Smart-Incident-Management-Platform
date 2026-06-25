@@ -94,3 +94,100 @@ public class ReportingServiceImpl implements ReportingService {
         // Ensure all priorities exist in distribution map
         List.of("P1", "P2", "P3", "P4").forEach(p -> priorityDist.putIfAbsent(p, 0L));
         List.of("OPEN", "ASSIGNED", "IN_PROGRESS", "PENDING", "RESOLVED", "CLOSED", "CANCELLED")
+                .forEach(s -> statusDist.putIfAbsent(s, 0L));
+
+        return DashboardKpiDto.builder()
+                .openIncidents(openIncidents)
+                .criticalIncidents(criticalIncidents)
+                .slaBreaches(slaBreaches)
+                .resolutionRate(Math.round(resolutionRate * 10.0) / 10.0)
+                .mttrHours(Math.round(mttr * 10.0) / 10.0)
+                .mttaHours(Math.round(mtta * 10.0) / 10.0)
+                .priorityDistribution(priorityDist)
+                .statusDistribution(statusDist)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generatePdfReport() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document document = new Document();
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            Font headerFont = new Font(Font.HELVETICA, 18, Font.BOLD);
+            Font bodyFont = new Font(Font.HELVETICA, 12, Font.NORMAL);
+
+            document.add(new Paragraph("Enterprise Incident Management Platform", headerFont));
+            document.add(new Paragraph("Monthly Incident & SLA Compliance Summary Report", headerFont));
+            document.add(new Paragraph("Generated Date: " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), bodyFont));
+            document.add(new Paragraph("------------------------------------------------------------------------------------------------", bodyFont));
+            document.add(new Paragraph(" "));
+
+            DashboardKpiDto kpis = getDashboardKpis();
+            document.add(new Paragraph("Key Performance Indicators (KPIs):", headerFont));
+            document.add(new Paragraph("- Active Open Incidents: " + kpis.getOpenIncidents(), bodyFont));
+            document.add(new Paragraph("- SLA Breaches: " + kpis.getSlaBreaches(), bodyFont));
+            document.add(new Paragraph("- Critical (P1) Active tickets: " + kpis.getCriticalIncidents(), bodyFont));
+            document.add(new Paragraph("- Ticket Resolution Rate: " + kpis.getResolutionRate() + "%", bodyFont));
+            document.add(new Paragraph("- Mean Time To Resolution (MTTR): " + kpis.getMttrHours() + " hours", bodyFont));
+            document.add(new Paragraph("- Mean Time To Acknowledge (MTTA): " + kpis.getMttaHours() + " hours", bodyFont));
+            document.add(new Paragraph(" "));
+
+            document.add(new Paragraph("Detailed Incident Records Listing:", headerFont));
+            document.add(new Paragraph(" "));
+
+            PdfPTable table = new PdfPTable(6);
+            table.setWidthPercentage(100);
+            table.addCell("Number");
+            table.addCell("Title");
+            table.addCell("Priority");
+            table.addCell("Status");
+            table.addCell("SLA Breach");
+            table.addCell("Created Date");
+
+            List<Incident> incidents = incidentRepository.findAll();
+            for (Incident i : incidents) {
+                table.addCell(i.getIncidentNumber());
+                table.addCell(i.getTitle());
+                table.addCell(i.getPriority());
+                table.addCell(i.getStatus());
+                table.addCell(i.isSlaBreached() ? "BREACHED" : "COMPLIANT");
+                table.addCell(i.getCreatedDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            }
+            document.add(table);
+
+            document.close();
+        } catch (Exception e) {
+            log.error("Failed to generate PDF Report: {}", e.getMessage());
+        }
+        return out.toByteArray();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generateExcelReport() {
+        // Generate high-quality Excel readable CSV bytes
+        StringBuilder sb = new StringBuilder();
+        sb.append("Incident Number,Title,Priority,Status,Assignee ID,Created Date,Resolved Date,SLA Breached\n");
+
+        List<Incident> incidents = incidentRepository.findAll();
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        for (Incident i : incidents) {
+            sb.append(i.getIncidentNumber()).append(",")
+              .append("\"").append(i.getTitle().replace("\"", "\"\"")).append("\",")
+              .append(i.getPriority()).append(",")
+              .append(i.getStatus()).append(",")
+              .append(i.getAssigneeId() != null ? i.getAssigneeId() : "Unassigned").append(",")
+              .append(i.getCreatedDate().format(dtf)).append(",")
+              .append(i.getResolvedDate() != null ? i.getResolvedDate().format(dtf) : "N/A").append(",")
+              .append(i.isSlaBreached() ? "TRUE" : "FALSE")
+              .append("\n");
+        }
+
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+}
