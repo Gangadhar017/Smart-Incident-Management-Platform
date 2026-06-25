@@ -22,3 +22,28 @@ public class AttachmentController {
     @PostMapping("/incident/{incidentId}")
     public ResponseEntity<AttachmentDto> uploadFile(
             @PathVariable Long incidentId,
+            @RequestParam("file") MultipartFile file,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) throws IOException {
+        return ResponseEntity.ok(attachmentService.uploadFile(
+                incidentId, file.getOriginalFilename(), file.getContentType(), file.getBytes(), token
+        ));
+    }
+
+    @GetMapping("/{id}/download")
+    public ResponseEntity<byte[]> downloadFile(
+            @PathVariable Long id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        byte[] data = attachmentService.downloadFile(id, token);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"file_" + id + "\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(data);
+    }
+
+    @GetMapping("/incident/{incidentId}")
+    public ResponseEntity<List<AttachmentDto>> getAttachments(
+            @PathVariable Long incidentId,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        return ResponseEntity.ok(attachmentService.getAttachmentsForIncident(incidentId, token));
+    }
+}
