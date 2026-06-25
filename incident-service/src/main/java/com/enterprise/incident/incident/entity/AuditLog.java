@@ -20,3 +20,25 @@ import java.time.LocalDateTime;
 public class AuditLog {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "incident_id", nullable = false)
+    private Long incidentId;
+
+    @Column(nullable = false, length = 100)
+    private String action;
+
+    @Column(name = "changed_by", nullable = false)
+    private Long changedBy;
+
+    @Column(name = "old_value", columnDefinition = "TEXT")
+    private String oldValue;
+
+    @Column(name = "new_value", columnDefinition = "TEXT")
+    private String newValue;
+
+    @CreatedDate
+    @Column(name = "timestamp", nullable = false, updatable = false)
+    private LocalDateTime timestamp;
+}
