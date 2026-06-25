@@ -21,3 +21,26 @@ public class Incident {
     private String incidentNumber;
 
     private String title;
+
+    private String priority;
+
+    private String status;
+
+    @Column(name = "assignee_id")
+    private Long assigneeId;
+
+    @Column(name = "created_date")
+    private LocalDateTime createdDate;
+
+    @Column(name = "resolved_date")
+    private LocalDateTime resolvedDate;
+
+    @Column(name = "closed_date")
+    private LocalDateTime closedDate;
+
+    @Column(name = "sla_due_date")
+    private LocalDateTime slaDueDate;
+
+    @Column(name = "sla_breached")
+    private boolean slaBreached;
+}
