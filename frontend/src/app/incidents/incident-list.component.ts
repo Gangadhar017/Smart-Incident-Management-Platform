@@ -156,3 +156,162 @@ import { ApiService } from '../services/api.service';
               <label class="drawer-label">Priority</label>
               <select [(ngModel)]="newIncident.priority" name="priority" required class="input-field">
                 <option value="P1">P1 Critical</option>
+                <option value="P2">P2 High</option>
+                <option value="P3">P3 Medium</option>
+                <option value="P4">P4 Low</option>
+              </select>
+            </div>
+            <div>
+              <label class="drawer-label">Severity</label>
+              <select [(ngModel)]="newIncident.severity" name="severity" required class="input-field">
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px; padding: 10px;">
+            Submit Ticket
+          </button>
+        </form>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .filters-ribbon {
+      display: flex;
+      gap: 12px;
+      background-color: #FFFFFF;
+      padding: 12px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+    .drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.4);
+      z-index: 100;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .drawer-content {
+      width: 460px;
+      background: #FFFFFF;
+      height: 100%;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+    .drawer-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .drawer-header h3 {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .drawer-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+  `]
+})
+export class IncidentListComponent implements OnInit {
+  incidents: any[] = [];
+  totalElements = 0;
+  drawerOpen = false;
+
+  filters = {
+    search: '',
+    priority: '',
+    status: '',
+    page: 0,
+    size: 20,
+    sortBy: 'id',
+    direction: 'desc'
+  };
+
+  newIncident = {
+    title: '',
+    description: '',
+    category: 'Software',
+    subcategory: '',
+    priority: 'P3',
+    severity: 'Medium',
+    reporterId: 0
+  };
+
+  constructor(private apiService: ApiService, private router: Router) {}
+
+  ngOnInit(): void {
+    const user = this.apiService.getCurrentUser();
+    if (user) {
+      this.newIncident.reporterId = user.id;
+    }
+    this.loadIncidents();
+  }
+
+  loadIncidents(): void {
+    this.apiService.getIncidents(this.filters).subscribe({
+      next: (res) => {
+        this.incidents = res.content;
+        this.totalElements = res.totalElements;
+      }
+    });
+  }
+
+  applyFilters(): void {
+    this.filters.page = 0;
+    this.loadIncidents();
+  }
+
+  prevPage(): void {
+    if (this.filters.page > 0) {
+      this.filters.page--;
+      this.loadIncidents();
+    }
+  }
+
+  nextPage(): void {
+    if ((this.filters.page + 1) * this.filters.size < this.totalElements) {
+      this.filters.page++;
+      this.loadIncidents();
+    }
+  }
+
+  viewIncident(id: number): void {
+    this.router.navigate(['/incidents', id]);
+  }
+
+  openDrawer(): void {
+    this.drawerOpen = true;
+  }
+
+  closeDrawer(): void {
+    this.drawerOpen = false;
+  }
+
+  saveIncident(): void {
+    this.apiService.createIncident(this.newIncident).subscribe({
+      next: () => {
+        this.closeDrawer();
+        this.newIncident.title = '';
+        this.newIncident.description = '';
+        this.newIncident.subcategory = '';
+        this.loadIncidents();
+      }
+    });
+  }
+}
