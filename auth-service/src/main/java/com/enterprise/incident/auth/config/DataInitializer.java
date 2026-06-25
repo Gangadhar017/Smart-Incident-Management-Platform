@@ -53,3 +53,59 @@ public class DataInitializer implements CommandLineRunner {
                 .username("admin")
                 .email("admin@enterprise.com")
                 .password(passwordEncoder.encode("adminpassword"))
+                .role(Role.ADMIN)
+                .department(itDept)
+                .active(true)
+                .build());
+
+        User manager = userRepository.save(User.builder()
+                .username("manager")
+                .email("manager@enterprise.com")
+                .password(passwordEncoder.encode("adminpassword"))
+                .role(Role.INCIDENT_MANAGER)
+                .department(itDept)
+                .active(true)
+                .build());
+
+        User lead = userRepository.save(User.builder()
+                .username("lead")
+                .email("lead@enterprise.com")
+                .password(passwordEncoder.encode("adminpassword"))
+                .role(Role.TEAM_LEAD)
+                .department(opsDept)
+                .team(cloudTeam)
+                .active(true)
+                .build());
+
+        User engineer = userRepository.save(User.builder()
+                .username("engineer")
+                .email("engineer@enterprise.com")
+                .password(passwordEncoder.encode("adminpassword"))
+                .role(Role.SUPPORT_ENGINEER)
+                .department(opsDept)
+                .team(cloudTeam)
+                .skills(Set.of("Java", "PostgreSQL", "Redis", "Kafka", "AWS"))
+                .active(true)
+                .build());
+
+        User employee = userRepository.save(User.builder()
+                .username("employee")
+                .email("employee@enterprise.com")
+                .password(passwordEncoder.encode("adminpassword"))
+                .role(Role.EMPLOYEE)
+                .department(supportDept)
+                .team(l2Support)
+                .active(true)
+                .build());
+
+        // Update managers and leads references
+        itDept.setManagerId(manager.getId());
+        departmentRepository.save(itDept);
+
+        opsDept.setManagerId(manager.getId());
+        departmentRepository.save(opsDept);
+
+        cloudTeam.setLeadId(lead.getId());
+        teamRepository.save(cloudTeam);
+    }
+}
