@@ -37,3 +37,43 @@ import { ApiService } from './services/api.service';
           <button (click)="logout()" class="btn" style="padding: 4px; min-width: auto; border: none; background: transparent; color: #9CA3AF;">
             <span class="material-icons">logout</span>
           </button>
+        </div>
+      </aside>
+
+      <!-- Main Panel Work Area -->
+      <main class="main-content">
+        <header class="top-nav">
+          <div style="font-weight: 500; color: var(--text-muted);">Smart Incident Management Console v1.0</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons" style="font-size: 20px; color: var(--text-muted);">notifications</span>
+            <div style="width: 8px; height: 8px; background: var(--success); border-radius: 50%;"></div>
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">System Active</span>
+          </div>
+        </header>
+        <div class="content-pane">
+          <router-outlet></router-outlet>
+        </div>
+      </main>
+    </div>
+
+    <!-- Anonymous Flow Layout (Login Screen) -->
+    <ng-template #anonymous>
+      <div style="width: 100vw; height: 100vh; overflow: auto; background-color: var(--bg-main);">
+        <router-outlet></router-outlet>
+      </div>
+    </ng-template>
+  `
+})
+export class AppComponent {
+  constructor(public apiService: ApiService, private router: Router) {
+    // If not authenticated, force routing to login
+    if (!this.apiService.isAuthenticated()) {
+      this.router.navigate(['/login']);
+    }
+  }
+
+  logout(): void {
+    this.apiService.logout();
+    this.router.navigate(['/login']);
+  }
+}
