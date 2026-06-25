@@ -42,3 +42,47 @@ public class IncidentController {
     }
 
     @GetMapping("/{id}")
+    public ResponseEntity<IncidentDto> getIncidentById(
+            @PathVariable Long id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        return ResponseEntity.ok(incidentService.getIncidentById(id, token));
+    }
+
+    @GetMapping("/number/{incidentNumber}")
+    public ResponseEntity<IncidentDto> getIncidentByNumber(
+            @PathVariable String incidentNumber,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        return ResponseEntity.ok(incidentService.getIncidentByNumber(incidentNumber, token));
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<IncidentDto>> getIncidents(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Priority priority,
+            @RequestParam(required = false) Status status,
+            @RequestParam(required = false) Long assigneeId,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+
+        Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        return ResponseEntity.ok(incidentService.searchIncidents(
+                search, priority, status, assigneeId, departmentId, startDate, endDate, pageable, token
+        ));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteIncident(
+            @PathVariable Long id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String token) {
+        incidentService.deleteIncident(id, token);
+        return ResponseEntity.noContent().build();
+    }
+}
