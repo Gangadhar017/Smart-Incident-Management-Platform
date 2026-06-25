@@ -119,3 +119,125 @@ public class AuthServiceImpl implements AuthService {
                 .active(true)
                 .build();
 
+        User saved = userRepository.save(user);
+        return mapToDto(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserDto getUserProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        return mapToDto(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserDto getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+        return mapToDto(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<UserDto> searchUsers(String query, Long departmentId, Pageable pageable) {
+        Specification<User> spec = Specification.where(null);
+
+        if (query != null && !query.trim().isEmpty()) {
+            String lowerQuery = "%" + query.toLowerCase() + "%";
+            spec = spec.and((root, criteriaQuery, cb) ->
+                    cb.or(
+                            cb.like(cb.lower(root.get("username")), lowerQuery),
+                            cb.like(cb.lower(root.get("email")), lowerQuery)
+                    )
+            );
+        }
+
+        if (departmentId != null) {
+            spec = spec.and((root, criteriaQuery, cb) ->
+                    cb.equal(root.get("department").get("id"), departmentId)
+            );
+        }
+
+        return userRepository.findAll(spec, pageable).map(this::mapToDto);
+    }
+
+    @Override
+    @Transactional
+    public DepartmentDto createDepartment(DepartmentDto dto) {
+        if (departmentRepository.existsByCode(dto.getCode())) {
+            throw new IllegalArgumentException("Department code already exists");
+        }
+
+        Department department = Department.builder()
+                .name(dto.getName())
+                .code(dto.getCode())
+                .managerId(dto.getManagerId())
+                .build();
+
+        Department saved = departmentRepository.save(department);
+        dto.setId(saved.getId());
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DepartmentDto> getAllDepartments() {
+        return departmentRepository.findAll().stream()
+                .map(d -> {
+                    DepartmentDto dto = new DepartmentDto();
+                    dto.setId(d.getId());
+                    dto.setName(d.getName());
+                    dto.setCode(d.getCode());
+                    dto.setManagerId(d.getManagerId());
+                    return dto;
+                }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public TeamDto createTeam(TeamDto dto) {
+        Department department = departmentRepository.findById(dto.getDepartmentId())
+                .orElseThrow(() -> new EntityNotFoundException("Department not found"));
+
+        Team team = Team.builder()
+                .name(dto.getName())
+                .department(department)
+                .leadId(dto.getLeadId())
+                .build();
+
+        Team saved = teamRepository.save(team);
+        dto.setId(saved.getId());
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TeamDto> getTeamsByDepartment(Long departmentId) {
+        return teamRepository.findByDepartmentId(departmentId).stream()
+                .map(t -> {
+                    TeamDto dto = new TeamDto();
+                    dto.setId(t.getId());
+                    dto.setName(t.getName());
+                    dto.setDepartmentId(t.getDepartment().getId());
+                    dto.setLeadId(t.getLeadId());
+                    return dto;
+                }).collect(Collectors.toList());
+    }
+
+    private UserDto mapToDto(User user) {
+        return UserDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .active(user.isActive())
+                .departmentId(user.getDepartment() != null ? user.getDepartment().getId() : null)
+                .departmentName(user.getDepartment() != null ? user.getDepartment().getName() : null)
+                .teamId(user.getTeam() != null ? user.getTeam().getId() : null)
+                .teamName(user.getTeam() != null ? user.getTeam().getName() : null)
+                .skills(user.getSkills())
+                .build();
+    }
+}
