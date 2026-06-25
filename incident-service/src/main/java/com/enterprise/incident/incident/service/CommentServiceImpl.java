@@ -53,3 +53,58 @@ public class CommentServiceImpl implements CommentService {
             String eventJson = String.format(
                     "{\"eventType\":\"COMMENT_ADDED\",\"incidentId\":%d,\"incidentNumber\":\"%s\",\"authorId\":%d,\"isInternal\":%b}",
                     incident.getId(), incident.getIncidentNumber(), authorId, comment.isInternal()
+            );
+            kafkaTemplate.send("incident-events", incident.getIncidentNumber(), eventJson);
+        } catch (Exception e) {
+            // Log fallback
+        }
+
+        return mapToDto(saved, author.getUsername());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CommentDto> getCommentsForIncident(Long incidentId, String token) {
+        return commentRepository.findByIncidentIdOrderByCreatedDateAsc(incidentId).stream()
+                .map(c -> {
+                    String authorName = "System";
+                    try {
+                        UserDto user = authServiceClient.getUserById(c.getAuthorId(), token);
+                        if (user != null) authorName = user.getUsername();
+                    } catch (Exception e) {
+                        // ignore remote lookup error
+                    }
+                    return mapToDto(c, authorName);
+                }).collect(Collectors.toList());
+    }
+
+    private void detectAndProcessMentions(Incident incident, String content, String authorName) {
+        Pattern pattern = Pattern.compile("@(\\w+)");
+        Matcher matcher = pattern.matcher(content);
+        while (matcher.find()) {
+            String username = matcher.group(1);
+            // Send user mention event to Kafka for processing
+            try {
+                String eventJson = String.format(
+                        "{\"eventType\":\"USER_MENTIONED\",\"incidentNumber\":\"%s\",\"mentionedUser\":\"%s\",\"byUser\":\"%s\"}",
+                        incident.getIncidentNumber(), username, authorName
+                );
+                kafkaTemplate.send("incident-events", incident.getIncidentNumber(), eventJson);
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+    }
+
+    private CommentDto mapToDto(Comment comment, String authorName) {
+        return CommentDto.builder()
+                .id(comment.getId())
+                .incidentId(comment.getIncident().getId())
+                .authorId(comment.getAuthorId())
+                .authorName(authorName)
+                .content(comment.getContent())
+                .internal(comment.isInternal())
+                .createdDate(comment.getCreatedDate())
+                .build();
+    }
+}
