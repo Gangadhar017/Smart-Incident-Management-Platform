@@ -13,3 +13,18 @@ import java.util.List;
 @RequestMapping("/api/v1/teams")
 @RequiredArgsConstructor
 public class TeamController {
+
+    private final AuthService authService;
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<TeamDto> createTeam(@RequestBody TeamDto dto) {
+        return ResponseEntity.ok(authService.createTeam(dto));
+    }
+
+    @GetMapping
+    @RequestMapping("/department/{departmentId}")
+    public ResponseEntity<List<TeamDto>> getTeamsByDepartment(@PathVariable Long departmentId) {
+        return ResponseEntity.ok(authService.getTeamsByDepartment(departmentId));
+    }
+}
