@@ -28,3 +28,34 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 app:
+  services:
+    auth-service:
+      url: http://localhost:8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: always
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://postgres:5432/incident_db
+  data:
+    redis:
+      host: redis
+      port: 6379
+  kafka:
+    bootstrap-servers: kafka:9092
+
+app:
+  services:
+    auth-service:
+      url: http://imp-auth-service:8081
