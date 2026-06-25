@@ -4,3 +4,10 @@ import com.enterprise.incident.incident.entity.Priority;
 import com.enterprise.incident.incident.entity.SlaRule;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface SlaRuleRepository extends JpaRepository<SlaRule, Long> {
+    Optional<SlaRule> findByPriority(Priority priority);
+}
