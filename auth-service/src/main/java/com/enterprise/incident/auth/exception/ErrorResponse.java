@@ -3,5 +3,8 @@ package com.enterprise.incident.auth.exception;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-// Declared class framework
+import java.time.LocalDateTime;
+
+@Data
