@@ -181,3 +181,186 @@ public class IncidentServiceImpl implements IncidentService {
     ) {
         Specification<Incident> spec = Specification.where(null);
 
+        if (query != null && !query.trim().isEmpty()) {
+            String lowerQuery = "%" + query.toLowerCase() + "%";
+            spec = spec.and((root, cq, cb) ->
+                    cb.or(
+                            cb.like(cb.lower(root.get("title")), lowerQuery),
+                            cb.like(cb.lower(root.get("incidentNumber")), lowerQuery)
+                    )
+            );
+        }
+
+        if (priority != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("priority"), priority));
+        }
+
+        if (status != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("status"), status));
+        }
+
+        if (assigneeId != null) {
+            spec = spec.and((root, cq, cb) -> cb.equal(root.get("assigneeId"), assigneeId));
+        }
+
+        if (startDate != null) {
+            spec = spec.and((root, cq, cb) -> cb.greaterThanOrEqualTo(root.get("createdDate"), startDate));
+        }
+
+        if (endDate != null) {
+            spec = spec.and((root, cq, cb) -> cb.lessThanOrEqualTo(root.get("createdDate"), endDate));
+        }
+
+        // Return DTO mapped results
+        Page<Incident> page = incidentRepository.findAll(spec, pageable);
+        return page.map(i -> mapToDto(i, token));
+    }
+
+    @Override
+    @Transactional
+    public void deleteIncident(Long id, String token) {
+        Incident incident = incidentRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Incident not found"));
+        incidentRepository.delete(incident);
+    }
+
+    @Override
+    @Transactional
+    public void processSlaEscalations() {
+        log.info("Running SLA background scheduler scanner...");
+        List<Incident> activeIncidents = incidentRepository.findBySlaBreachedFalseAndStatusNotIn(
+                List.of(Status.RESOLVED, Status.CLOSED, Status.CANCELLED)
+        );
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Incident incident : activeIncidents) {
+            if (incident.getSlaDueDate() != null && now.isAfter(incident.getSlaDueDate())) {
+                incident.setSlaBreached(true);
+                incident.setEscalated(true);
+                
+                int nextEscalationLevel = incident.getEscalationLevel() + 1;
+                incident.setEscalationLevel(nextEscalationLevel);
+
+                // Auto Assign Escalation Owner level logic:
+                // Level 1: P1 -> Team Lead (we fetch the lead id for this team if assignee has one, or default lead)
+                // Level 2: P1 overdue -> Incident Manager
+                // Level 3: P1 severely overdue -> Admin
+                // Here we write audit logs and update assignee level
+                createAuditLog(incident.getId(), "SLA_BREACHED", 0L, "false", "true");
+                createAuditLog(incident.getId(), "ESCALATION_LEVEL", 0L, 
+                        String.valueOf(nextEscalationLevel - 1), String.valueOf(nextEscalationLevel));
+
+                incidentRepository.save(incident);
+                sendKafkaEvent("INCIDENT_ESCALATED", incident);
+                log.info("Incident {} breached SLA! Escalation level bumped to {}.", incident.getIncidentNumber(), nextEscalationLevel);
+            }
+        }
+    }
+
+    private String generateIncidentNumber() {
+        try {
+            Long val = redisTemplate.opsForValue().increment(INCIDENT_NUMBER_KEY);
+            return "INC-" + String.format("%05d", val);
+        } catch (Exception e) {
+            // Database Max ID fallback
+            long count = incidentRepository.count();
+            return "INC-" + String.format("%05d", count + 1);
+        }
+    }
+
+    private LocalDateTime calculateSlaDueDate(Priority priority) {
+        Optional<SlaRule> rule = slaRuleRepository.findByPriority(priority);
+        long minutes = 24 * 60; // 24 Hours default
+        if (rule.isPresent()) {
+            minutes = rule.get().getResolutionTimeMinutes();
+        } else {
+            // Standard seed times: P1=1h, P2=4h, P3=24h, P4=72h
+            minutes = switch (priority) {
+                case P1 -> 60;
+                case P2 -> 4 * 60;
+                case P3 -> 24 * 60;
+                case P4 -> 72 * 60;
+            };
+        }
+        return LocalDateTime.now().plusMinutes(minutes);
+    }
+
+    private void checkAndAudit(Incident incident, String field, String oldVal, String newVal, Long userId) {
+        if (newVal != null && !newVal.equals(oldVal)) {
+            createAuditLog(incident.getId(), field, userId, oldVal, newVal);
+        }
+    }
+
+    private void createAuditLog(Long incidentId, String action, Long userId, String oldValue, String newValue) {
+        AuditLog logEntity = AuditLog.builder()
+                .incidentId(incidentId)
+                .action(action)
+                .changedBy(userId)
+                .oldValue(oldValue)
+                .newValue(newValue)
+                .build();
+        auditLogRepository.save(logEntity);
+    }
+
+    private void sendKafkaEvent(String eventType, Incident incident) {
+        try {
+            // Build a clean event string
+            String eventJson = String.format(
+                    "{\"eventType\":\"%s\",\"incidentId\":%d,\"incidentNumber\":\"%s\",\"priority\":\"%s\",\"status\":\"%s\",\"assigneeId\":%d}",
+                    eventType, incident.getId(), incident.getIncidentNumber(), incident.getPriority().name(), incident.getStatus().name(),
+                    incident.getAssigneeId() != null ? incident.getAssigneeId() : 0L
+            );
+            kafkaTemplate.send(KAFKA_TOPIC, incident.getIncidentNumber(), eventJson);
+        } catch (Exception e) {
+            log.error("Failed to publish Kafka event for Incident {}: {}", incident.getIncidentNumber(), e.getMessage());
+        }
+    }
+
+    private UserDto fetchUserSafe(Long userId, String token) {
+        if (userId == null) return null;
+        try {
+            return authServiceClient.getUserById(userId, token);
+        } catch (Exception e) {
+            log.error("Could not fetch user ID {} via Feign: {}", userId, e.getMessage());
+            return UserDto.builder().id(userId).username("user_id_" + userId).email("unknown@enterprise.com").build();
+        }
+    }
+
+    private IncidentDto mapToDto(Incident incident, String token) {
+        String assigneeName = "Unassigned";
+        if (incident.getAssigneeId() != null) {
+            UserDto assignee = fetchUserSafe(incident.getAssigneeId(), token);
+            if (assignee != null) assigneeName = assignee.getUsername();
+        }
+
+        String reporterName = "Unknown";
+        if (incident.getReporterId() != null) {
+            UserDto reporter = fetchUserSafe(incident.getReporterId(), token);
+            if (reporter != null) reporterName = reporter.getUsername();
+        }
+
+        return IncidentDto.builder()
+                .id(incident.getId())
+                .incidentNumber(incident.getIncidentNumber())
+                .title(incident.getTitle())
+                .description(incident.getDescription())
+                .category(incident.getCategory())
+                .subcategory(incident.getSubcategory())
+                .priority(incident.getPriority())
+                .severity(incident.getSeverity())
+                .status(incident.getStatus())
+                .assigneeId(incident.getAssigneeId())
+                .assigneeName(assigneeName)
+                .reporterId(incident.getReporterId())
+                .reporterName(reporterName)
+                .createdDate(incident.getCreatedDate())
+                .resolvedDate(incident.getResolvedDate())
+                .closedDate(incident.getClosedDate())
+                .slaDueDate(incident.getSlaDueDate())
+                .slaBreached(incident.isSlaBreached())
+                .escalated(incident.isEscalated())
+                .escalationLevel(incident.getEscalationLevel())
+                .version(incident.getVersion())
+                .build();
+    }
+}
