@@ -60,3 +60,66 @@ public class IncidentServiceTest {
                 .email("emp@enterprise.com")
                 .role("EMPLOYEE")
                 .build();
+    }
+
+    @Test
+    void testCreateIncident_Success() {
+        CreateIncidentRequest req = new CreateIncidentRequest();
+        req.setTitle("Database Connection Failure");
+        req.setDescription("Latency spikes on DB server");
+        req.setCategory("Database");
+        req.setPriority(Priority.P1);
+        req.setSeverity("Critical");
+        req.setReporterId(2L);
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment("imp:incident:number")).thenReturn(100L);
+        when(authServiceClient.getUserById(eq(2L), anyString())).thenReturn(reporter);
+        when(slaRuleRepository.findByPriority(Priority.P1)).thenReturn(Optional.empty());
+
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(inv -> {
+            Incident i = inv.getArgument(0);
+            i.setId(1L);
+            i.setCreatedDate(LocalDateTime.now());
+            return i;
+        });
+
+        IncidentDto dto = incidentService.createIncident(req, "Bearer mock_token");
+
+        assertNotNull(dto);
+        assertEquals(1L, dto.getId());
+        assertEquals("INC-00100", dto.getIncidentNumber());
+        assertEquals(Priority.P1, dto.getPriority());
+        assertEquals(Status.OPEN, dto.getStatus());
+        assertNotNull(dto.getSlaDueDate());
+        verify(incidentRepository, times(1)).save(any());
+        verify(auditLogRepository, times(1)).save(any());
+        verify(kafkaTemplate, times(1)).send(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void testProcessSlaEscalations_Breached_TriggersEscalation() {
+        Incident breachedIncident = Incident.builder()
+                .id(1L)
+                .incidentNumber("INC-00001")
+                .title("System Offline")
+                .status(Status.ASSIGNED)
+                .priority(Priority.P1)
+                .slaDueDate(LocalDateTime.now().minusMinutes(5)) // overdue by 5 mins
+                .slaBreached(false)
+                .escalationLevel(0)
+                .build();
+
+        when(incidentRepository.findBySlaBreachedFalseAndStatusNotIn(anyList()))
+                .thenReturn(List.of(breachedIncident));
+
+        incidentService.processSlaEscalations();
+
+        assertTrue(breachedIncident.isSlaBreached());
+        assertTrue(breachedIncident.isEscalated());
+        assertEquals(1, breachedIncident.getEscalationLevel());
+        verify(incidentRepository, times(1)).save(breachedIncident);
+        verify(auditLogRepository, atLeastOnce()).save(any());
+        verify(kafkaTemplate, times(1)).send(anyString(), anyString(), anyString());
+    }
+}
