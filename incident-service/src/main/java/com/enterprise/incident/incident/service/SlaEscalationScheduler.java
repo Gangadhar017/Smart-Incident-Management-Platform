@@ -10,3 +10,15 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class SlaEscalationScheduler {
 
+    private final IncidentService incidentService;
+
+    // Scan every 30 seconds
+    @Scheduled(fixedDelay = 30000)
+    public void scanBreaches() {
+        try {
+            incidentService.processSlaEscalations();
+        } catch (Exception e) {
+            log.error("Error occurred during background SLA escalation processing: {}", e.getMessage());
+        }
+    }
+}
