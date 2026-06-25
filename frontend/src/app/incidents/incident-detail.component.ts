@@ -185,3 +185,191 @@ import { ApiService } from '../services/api.service';
     }
     .tab-btn {
       padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .tab-content {
+      padding: 20px;
+    }
+    .comments-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .comment-item {
+      background-color: #F8FAFC;
+      padding: 10px 14px;
+      border-radius: 6px;
+    }
+    .attachment-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background-color: #F8FAFC;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .audit-item {
+      padding: 8px 12px;
+      background-color: #F8FAFC;
+      border-left: 2px solid var(--primary);
+      border-radius: 4px;
+    }
+  `]
+})
+export class IncidentDetailComponent implements OnInit, OnDestroy {
+  @Input() id!: string; // Bound from router parameter
+  
+  incident: any = null;
+  loading = true;
+  activeTab = 'comments';
+  
+  comments: any[] = [];
+  attachments: any[] = [];
+  auditLogs: any[] = [];
+  staffEngineers: any[] = [];
+
+  newCommentContent = '';
+  isCommentInternal = false;
+
+  slaTimerString = '00:00:00';
+  private timerInterval: any = null;
+
+  constructor(public apiService: ApiService) {}
+
+  ngOnInit(): void {
+    const incidentId = Number(this.id);
+    this.loadDetails(incidentId);
+    this.loadStaffList();
+  }
+
+  ngOnDestroy(): void {
+    if (this.timerInterval) clearInterval(this.timerInterval);
+  }
+
+  loadDetails(incidentId: number): void {
+    this.loading = true;
+    this.apiService.getIncidentById(incidentId).subscribe({
+      next: (res) => {
+        this.incident = res;
+        this.loading = false;
+        this.startSlaTimer(res.slaDueDate);
+
+        // Fetch collaboration items
+        this.loadComments(incidentId);
+        this.loadAttachments(incidentId);
+        this.loadAudits(incidentId);
+      }
+    });
+  }
+
+  loadStaffList(): void {
+    this.apiService.getUsers().subscribe({
+      next: (res) => {
+        // filter directory to support engineers or admin roles
+        this.staffEngineers = res.content.filter((u: any) => 
+          ['SUPPORT_ENGINEER', 'TEAM_LEAD', 'INCIDENT_MANAGER', 'ADMIN'].includes(u.role)
+        );
+      }
+    });
+  }
+
+  loadComments(id: number): void {
+    this.apiService.getComments(id).subscribe(res => this.comments = res);
+  }
+
+  loadAttachments(id: number): void {
+    this.apiService.getAttachments(id).subscribe(res => this.attachments = res);
+  }
+
+  loadAudits(id: number): void {
+    this.apiService.http.get<any[]>(`http://localhost:8080/api/v1/incidents/${id}/audit`).subscribe(res => this.auditLogs = res);
+  }
+
+  postComment(): void {
+    this.apiService.addComment(this.incident.id, {
+      content: this.newCommentContent,
+      isInternal: this.isCommentInternal
+    }).subscribe(() => {
+      this.newCommentContent = '';
+      this.isCommentInternal = false;
+      this.loadComments(this.incident.id);
+      this.loadAudits(this.incident.id); // Comments trigger audit actions
+    });
+  }
+
+  onFileSelected(event: any): void {
+    const file = event.target.files[0];
+    if (file) {
+      this.apiService.uploadAttachment(this.incident.id, file).subscribe(() => {
+        this.loadAttachments(this.incident.id);
+      });
+    }
+  }
+
+  updateStatus(status: string): void {
+    this.apiService.updateIncident(this.incident.id, { status }).subscribe(() => {
+      this.loadDetails(this.incident.id);
+    });
+  }
+
+  assignTicket(event: any): void {
+    const val = event.target.value;
+    const assigneeId = val === 'null' ? null : Number(val);
+    this.apiService.updateIncident(this.incident.id, { assigneeId }).subscribe(() => {
+      this.loadDetails(this.incident.id);
+    });
+  }
+
+  formatCommentContent(content: string): string {
+    // Escape standard content and replace @username with bold/colored span
+    if (!content) return '';
+    return content.replace(/@(\w+)/g, '<span style="color: var(--primary); font-weight: 700;">@$1</span>');
+  }
+
+  formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  private startSlaTimer(dueDateStr: string): void {
+    if (this.timerInterval) clearInterval(this.timerInterval);
+    const dueDate = new Date(dueDateStr).getTime();
+
+    this.timerInterval = setInterval(() => {
+      const now = new Date().getTime();
+      const difference = dueDate - now;
+
+      if (difference <= 0 || this.incident.status === 'RESOLVED' || this.incident.status === 'CLOSED') {
+        this.slaTimerString = this.incident.slaBreached || difference <= 0 ? 'BREACHED' : 'COMPLIANT';
+        clearInterval(this.timerInterval);
+        return;
+      }
+
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      this.slaTimerString = 
+        (hours < 10 ? '0' + hours : hours) + ':' + 
+        (minutes < 10 ? '0' + minutes : minutes) + ':' + 
+        (seconds < 10 ? '0' + seconds : seconds);
+    }, 1000);
+  }
+}
