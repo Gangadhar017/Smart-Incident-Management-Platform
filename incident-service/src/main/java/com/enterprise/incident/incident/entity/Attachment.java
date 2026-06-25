@@ -21,3 +21,26 @@ public class Attachment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "incident_id", nullable = false)
+    private Incident incident;
+
+    @Column(nullable = false)
+    private String filename;
+
+    @Column(name = "s3_key", nullable = false)
+    private String s3Key;
+
+    @Column(name = "file_size", nullable = false)
+    private long fileSize;
+
+    @Column(name = "content_type", length = 100)
+    private String contentType;
+
+    @Column(name = "uploaded_by", nullable = false)
+    private Long uploadedBy;
+
+    @CreatedDate
+    @Column(name = "uploaded_date", nullable = false, updatable = false)
+    private LocalDateTime uploadedDate;
+}
