@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../services/api.service';
@@ -7,7 +7,7 @@ import { ApiService } from '../services/api.service';
 @Component({
   selector: 'app-incident-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   template: `
     <div style="display: flex; flex-direction: column; gap: 16px; height: 100%;">
       <!-- Board Header -->

@@ -296,7 +296,7 @@ export class IncidentDetailComponent implements OnInit, OnDestroy {
   }
 
   loadAudits(id: number): void {
-    this.apiService.getAuditLogs(id).subscribe(res => this.auditLogs = res);
+    this.apiService.getIncidentAudits(id).subscribe(res => this.auditLogs = res);
   }
 
   postComment(): void {

@@ -67,7 +67,7 @@ import { ApiService } from '../services/api.service';
             <h3>Priority Breakdown</h3>
             <p class="subtitle" style="margin-bottom: 16px;">Breakdown of active incidents by organizational priority</p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
-              <div *ngFor="let item of priorityList">
+              <div *ngFor="let item of kpis.priorityDistribution | keyvalue">
                 <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
                   <span style="font-weight: 600;">{{ item.key }}</span>
                   <span style="color: var(--text-muted);">{{ item.value }} tickets</span>
@@ -85,9 +85,9 @@ import { ApiService } from '../services/api.service';
             <h3>Lifecycle Stages</h3>
             <p class="subtitle" style="margin-bottom: 16px;">Current count of incidents per stage of the workflow</p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
-              <div *ngFor="let item of statusList">
+              <div *ngFor="let item of kpis.statusDistribution | keyvalue">
                 <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
-                  <span style="font-weight: 600; text-transform: capitalize;">{{ item.key.replace('_', ' ').toLowerCase() }}</span>
+                  <span style="font-weight: 600; text-transform: capitalize;">{{ formatStatus(item.key) }}</span>
                   <span style="color: var(--text-muted);">{{ item.value }} tickets</span>
                 </div>
                 <div class="bar-container">
@@ -136,8 +136,6 @@ export class DashboardComponent implements OnInit {
   kpis: any = null;
   loading = true;
   totalIncidents = 0;
-  priorityList: { key: string, value: number }[] = [];
-  statusList: { key: string, value: number }[] = [];
 
   constructor(private apiService: ApiService) {}
 
@@ -151,17 +149,6 @@ export class DashboardComponent implements OnInit {
       next: (res) => {
         this.kpis = res;
         this.totalIncidents = Object.values(res.priorityDistribution).reduce((a: any, b: any) => a + b, 0) as number;
-        
-        this.priorityList = Object.entries(res.priorityDistribution).map(([key, value]) => ({
-          key,
-          value: value as number
-        }));
-        
-        this.statusList = Object.entries(res.statusDistribution).map(([key, value]) => ({
-          key,
-          value: value as number
-        }));
-
         this.loading = false;
       },
       error: () => {
@@ -182,6 +169,10 @@ export class DashboardComponent implements OnInit {
       case 'P3': return 'var(--primary)';
       default: return '#64748B';
     }
+  }
+
+  formatStatus(key: any): string {
+    return String(key).replace('_', ' ').toLowerCase();
   }
 
   exportPdf(): void {

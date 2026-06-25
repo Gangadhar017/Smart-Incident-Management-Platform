@@ -103,6 +103,10 @@ export class ApiService {
     return this.http.get(`${this.gatewayUrl}/incidents/${id}`);
   }
 
+  getIncidentAudits(incidentId: number): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/incidents/${incidentId}/audit`);
+  }
+
   createIncident(incident: any): Observable<any> {
     return this.http.post(`${this.gatewayUrl}/incidents`, incident);
   }
@@ -146,9 +150,5 @@ export class ApiService {
 
   getReportExcel(): Observable<Blob> {
     return this.http.get(`${this.gatewayUrl}/reports/excel`, { responseType: 'blob' });
-  }
-
-  getAuditLogs(incidentId: number): Observable<any> {
-    return this.http.get(`${this.gatewayUrl}/incidents/${incidentId}/audit`);
   }
 }
