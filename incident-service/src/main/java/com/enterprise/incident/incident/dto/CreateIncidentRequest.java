@@ -12,3 +12,18 @@ public class CreateIncidentRequest {
 
     @NotBlank(message = "Description is required")
     private String description;
+
+    @NotBlank(message = "Category is required")
+    private String category;
+
+    private String subcategory;
+
+    @NotNull(message = "Priority is required")
+    private Priority priority;
+
+    @NotBlank(message = "Severity is required")
+    private String severity;
+
+    @NotNull(message = "Reporter ID is required")
+    private Long reporterId;
+}
