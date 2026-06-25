@@ -70,3 +70,75 @@ import { ApiService } from '../services/api.service';
       padding: 20px;
     }
     .login-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-header h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 8px;
+    }
+    .login-header p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .error-box {
+      background-color: #FEF2F2;
+      color: var(--danger);
+      border: 1px solid #FCA5A5;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+    }
+    .login-footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      font-size: 12px;
+      text-align: center;
+      color: var(--text-main);
+    }
+  `]
+})
+export class LoginComponent {
+  credentials = { username: '', password: '' };
+  errorMessage = '';
+
+  constructor(private apiService: ApiService, private router: Router) {
+    if (this.apiService.isAuthenticated()) {
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
+  onSubmit(): void {
+    this.errorMessage = '';
+    this.apiService.login(this.credentials).subscribe({
+      next: () => {
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'Invalid username or password';
+      }
+    });
+  }
+}
