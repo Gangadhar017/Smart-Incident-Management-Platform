@@ -62,3 +62,67 @@ public class AuthServiceTest {
                 .active(true)
                 .build();
     }
+
+    @Test
+    void testLogin_Success() {
+        LoginRequest req = new LoginRequest();
+        req.setUsername("testengineer");
+        req.setPassword("password");
+
+        Authentication auth = mock(Authentication.class);
+        UserDetails details = mock(UserDetails.class);
+        when(details.getUsername()).thenReturn("testengineer");
+        when(auth.getPrincipal()).thenReturn(details);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
+
+        when(userRepository.findByUsername("testengineer")).thenReturn(Optional.of(testUser));
+        when(jwtUtils.generateAccessToken(any(), any(), any())).thenReturn("mock_access");
+        when(jwtUtils.generateRefreshToken(any())).thenReturn("mock_refresh");
+
+        LoginResponse response = authService.login(req);
+
+        assertNotNull(response);
+        assertEquals("mock_access", response.getAccessToken());
+        assertEquals("testengineer", response.getUsername());
+        assertEquals("SUPPORT_ENGINEER", response.getRole());
+        verify(authenticationManager, times(1)).authenticate(any());
+    }
+
+    @Test
+    void testCreateUser_Success() {
+        CreateUserRequest req = new CreateUserRequest();
+        req.setUsername("newuser");
+        req.setEmail("newuser@enterprise.com");
+        req.setPassword("pass123");
+        req.setRole(Role.EMPLOYEE);
+        req.setSkills(Set.of("Java"));
+
+        when(userRepository.existsByUsername("newuser")).thenReturn(false);
+        when(userRepository.existsByEmail("newuser@enterprise.com")).thenReturn(false);
+        when(passwordEncoder.encode("pass123")).thenReturn("hashedPass");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(2L);
+            return u;
+        });
+
+        UserDto created = authService.createUser(req);
+
+        assertNotNull(created);
+        assertEquals(2L, created.getId());
+        assertEquals("newuser", created.getUsername());
+        assertEquals("EMPLOYEE", created.getRole());
+        assertTrue(created.getSkills().contains("Java"));
+    }
+
+    @Test
+    void testCreateUser_UsernameExists_ThrowsException() {
+        CreateUserRequest req = new CreateUserRequest();
+        req.setUsername("testengineer");
+        req.setEmail("unique@enterprise.com");
+
+        when(userRepository.existsByUsername("testengineer")).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> authService.createUser(req));
+    }
+}
