@@ -58,3 +58,63 @@ public class AttachmentServiceImpl implements AttachmentService {
             Attachment attachment = Attachment.builder()
                     .incident(incident)
                     .filename(filename)
+                    .s3Key(s3Key)
+                    .fileSize(data.length)
+                    .contentType(contentType)
+                    .uploadedBy(userId)
+                    .build();
+
+            Attachment saved = attachmentRepository.save(attachment);
+            return mapToDto(saved, user.getUsername());
+
+        } catch (IOException e) {
+            log.error("Failed to write file to local S3 simulation directory: {}", e.getMessage());
+            throw new RuntimeException("File upload failed", e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadFile(Long attachmentId, String token) {
+        Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
+
+        try {
+            Path filePath = Paths.get(UPLOAD_DIR).resolve(attachment.getS3Key());
+            return Files.readAllBytes(filePath);
+        } catch (IOException e) {
+            log.error("Failed to read file from storage for attachment ID {}: {}", attachmentId, e.getMessage());
+            throw new RuntimeException("File download failed", e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttachmentDto> getAttachmentsForIncident(Long incidentId, String token) {
+        return attachmentRepository.findByIncidentId(incidentId).stream()
+                .map(a -> {
+                    String uploaderName = "System";
+                    try {
+                        UserDto user = authServiceClient.getUserById(a.getUploadedBy(), token);
+                        if (user != null) uploaderName = user.getUsername();
+                    } catch (Exception e) {
+                        // ignore lookup errors
+                    }
+                    return mapToDto(a, uploaderName);
+                }).collect(Collectors.toList());
+    }
+
+    private AttachmentDto mapToDto(Attachment attachment, String uploaderName) {
+        return AttachmentDto.builder()
+                .id(attachment.getId())
+                .incidentId(attachment.getIncident().getId())
+                .filename(attachment.getFilename())
+                .s3Key(attachment.getS3Key())
+                .fileSize(attachment.getFileSize())
+                .contentType(attachment.getContentType())
+                .uploadedBy(attachment.getUploadedBy())
+                .uploadedByName(uploaderName)
+                .uploadedDate(attachment.getUploadedDate())
+                .build();
+    }
+}
